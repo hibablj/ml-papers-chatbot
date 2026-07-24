@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .env 
 uploaded_pdfs/
+sample_pdfs/
+git 
