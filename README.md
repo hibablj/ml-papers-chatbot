@@ -10,7 +10,7 @@ to answer your question.
 ## Status
 
 Work in progress. Building incrementally:
-- [ ] PDF text extraction
+- [ Done ] PDF text extraction
 - [ ] Chunking + embedding
 - [ ] Vector search (retrieval)
 - [ ] LLM answer generation (Groq)
