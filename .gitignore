@@ -4,4 +4,4 @@ __pycache__/
 .env 
 uploaded_pdfs/
 sample_pdfs/
-git 
+git *.pdf

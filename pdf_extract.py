@@ -16,7 +16,7 @@ def extract_text_from_pdf(pdf_path):
 
 if __name__ == "__main__":
     
-    pages = extract_text_from_pdf("/Users/hibabelhaj/Desktop/1706.03762v7.pdf")
+    pages = extract_text_from_pdf("/Users/hibabelhaj/ml-papers-chatbot/AttentionIsAllYouNeed.pdf")
 
     print(f"Extracted {len(pages)} pages.")
     print("First 500 characters of page 1 ")
