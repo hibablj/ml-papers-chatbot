@@ -5,7 +5,8 @@ from groq import Groq
 
 load_dotenv()
 
-GROQ_MODEL = "llama-3.3-70b-versatile"
+# Override with GROQ_MODEL in .env if your account cannot use the default.
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 
 def build_prompt(question: str, chunks: list[dict]) -> str:

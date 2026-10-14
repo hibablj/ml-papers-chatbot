@@ -23,6 +23,7 @@ python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 echo "GROQ_API_KEY=your_key_here" > .env   # free key at console.groq.com
+# optional: echo "GROQ_MODEL=llama-3.1-8b-instant" >> .env
 uvicorn app:app --reload
 ```
 
