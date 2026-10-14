@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ML Paper Chatbot</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #1f2328;
+      --muted: #656d76;
+      --border: #d0d7de;
+      --panel: #f6f8fa;
+      --accent: #24292f;
+      --error: #b42318;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+    }
+    main { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    .sub { color: var(--muted); margin: 0 0 24px; }
+    .box {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 16px;
+      background: var(--bg);
+    }
+    label { display: block; font-weight: 600; margin-bottom: 8px; }
+    input[type="file"], input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font: inherit;
+      background: var(--bg);
+      color: var(--text);
+    }
+    button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .status { margin-top: 10px; color: var(--muted); font-size: 14px; }
+    .status.error { color: var(--error); }
+    .row { display: flex; gap: 8px; }
+    .row input { flex: 1; }
+    .row button { margin-top: 0; }
+    #chat { display: none; }
+    .msg { padding: 12px 14px; border-radius: 6px; margin-top: 12px; white-space: pre-wrap; }
+    .q { background: var(--panel); }
+    .a { border: 1px solid var(--border); }
+    .sources { margin-top: 8px; font-size: 13px; color: var(--muted); }
+    .sources summary { cursor: pointer; }
+    .src { margin-top: 6px; padding-left: 10px; border-left: 2px solid var(--border); }
+    .note { font-size: 13px; color: var(--muted); margin-top: 24px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>ML Paper Chatbot</h1>
+  <p class="sub">Upload a research paper as a PDF, then ask questions about it. Answers come from the paper's own text, with page numbers.</p>
+
+  <div class="box">
+    <label for="file">1. Upload a paper (PDF, up to 15 MB)</label>
+    <input id="file" type="file" accept="application/pdf">
+    <button id="uploadBtn">Upload</button>
+    <div id="uploadStatus" class="status"></div>
+  </div>
+
+  <div id="chat" class="box">
+    <label for="question">2. Ask a question</label>
+    <div class="row">
+      <input id="question" type="text" maxlength="500" placeholder="For example: What optimizer did they use?">
+      <button id="askBtn">Ask</button>
+    </div>
+    <div id="askStatus" class="status"></div>
+    <div id="answers"></div>
+  </div>
+
+  <p class="note">The first upload can take a little while because the embedding model has to load. Papers are kept in memory only and are cleared when the server restarts.</p>
+</main>
+
+<script>
+  let sessionId = null;
+
+  const fileInput = document.getElementById("file");
+  const uploadBtn = document.getElementById("uploadBtn");
+  const uploadStatus = document.getElementById("uploadStatus");
+  const chat = document.getElementById("chat");
+  const questionInput = document.getElementById("question");
+  const askBtn = document.getElementById("askBtn");
+  const askStatus = document.getElementById("askStatus");
+  const answers = document.getElementById("answers");
+
+  function setStatus(el, text, isError) {
+    el.textContent = text;
+    el.className = "status" + (isError ? " error" : "");
+  }
+
+  async function readError(res) {
+    try {
+      const data = await res.json();
+      return data.detail || "Something went wrong.";
+    } catch (e) {
+      return "Something went wrong.";
+    }
+  }
+
+  uploadBtn.addEventListener("click", async () => {
+    const file = fileInput.files[0];
+    if (!file) {
+      setStatus(uploadStatus, "Choose a PDF first.", true);
+      return;
+    }
+    const form = new FormData();
+    form.append("file", file);
+
+    uploadBtn.disabled = true;
+    setStatus(uploadStatus, "Reading and indexing the paper...", false);
+    try {
+      const res = await fetch("/upload", { method: "POST", body: form });
+      if (!res.ok) {
+        setStatus(uploadStatus, await readError(res), true);
+        return;
+      }
+      const data = await res.json();
+      sessionId = data.session_id;
+      setStatus(uploadStatus, data.filename + ": " + data.pages + " pages, " + data.chunks + " chunks indexed.", false);
+      chat.style.display = "block";
+      answers.innerHTML = "";
+      questionInput.focus();
+    } catch (e) {
+      setStatus(uploadStatus, "Could not reach the server.", true);
+    } finally {
+      uploadBtn.disabled = false;
+    }
+  });
+
+  function addMessage(className, text) {
+    const div = document.createElement("div");
+    div.className = "msg " + className;
+    div.textContent = text;
+    answers.appendChild(div);
+    return div;
+  }
+
+  async function ask() {
+    const question = questionInput.value.trim();
+    if (!question || !sessionId) return;
+
+    addMessage("q", question);
+    questionInput.value = "";
+    askBtn.disabled = true;
+    setStatus(askStatus, "Thinking...", false);
+
+    try {
+      const res = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, question: question })
+      });
+      if (!res.ok) {
+        setStatus(askStatus, await readError(res), true);
+        return;
+      }
+      const data = await res.json();
+      setStatus(askStatus, "", false);
+      const box = addMessage("a", data.answer);
+
+      const details = document.createElement("details");
+      details.className = "sources";
+      const summary = document.createElement("summary");
+      summary.textContent = "Sources (" + data.sources.length + " passages)";
+      details.appendChild(summary);
+      data.sources.forEach((s) => {
+        const p = document.createElement("div");
+        p.className = "src";
+        p.textContent = "Page " + s.page + ": " + s.preview + "...";
+        details.appendChild(p);
+      });
+      box.appendChild(details);
+    } catch (e) {
+      setStatus(askStatus, "Could not reach the server.", true);
+    } finally {
+      askBtn.disabled = false;
+    }
+  }
+
+  askBtn.addEventListener("click", ask);
+  questionInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") ask();
+  });
+</script>
+</body>
+</html>
