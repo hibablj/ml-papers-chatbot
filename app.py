@@ -69,7 +69,7 @@ def store_session(chunks, index, filename) -> str:
 class Question(BaseModel):
     session_id: str
     question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
-    k: int = Field(default=4, ge=1, le=8)
+    k: int = Field(default=5, ge=1, le=8)
 
 
 @app.get("/")

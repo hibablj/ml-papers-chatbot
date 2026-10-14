@@ -1,7 +1,9 @@
 from sentence_transformers import SentenceTransformer
 from pdf_extract import extract_text_from_pdf
 
-def chunk_text(pages_text: list[str], chunk_size: int=500, overlap: int = 50):
+# all-MiniLM-L6-v2 only reads about the first 200 words of its input, so chunks
+# must stay small or the rest of each chunk is never searched.
+def chunk_text(pages_text: list[str], chunk_size: int = 150, overlap: int = 30):
 
     chunks =[]
 
