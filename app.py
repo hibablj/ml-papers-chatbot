@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 import time
@@ -13,6 +14,8 @@ from chunk_embed import chunk_text, embed_chunks
 from llm import answer_question
 from pdf_extract import extract_text_from_pdf
 from retrieval import build_index, search
+
+logger = logging.getLogger("uvicorn.error")
 
 app = FastAPI(title="ML Paper Chatbot")
 
@@ -148,6 +151,7 @@ def ask(request: Request, body: Question):
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
     except Exception:
+        logger.exception("Groq request failed")
         raise HTTPException(
             status_code=502, detail="The language model request failed. Please try again."
         )
